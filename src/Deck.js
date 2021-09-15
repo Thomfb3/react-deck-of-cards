@@ -9,6 +9,8 @@ const API_BASE_URL = "http://deckofcardsapi.com/api/deck";
 const Deck = () => {
     const [deck, setDeck] = useState(null);
     const [drawn, setDrawn] = useState([]);
+    const [autoDraw, setAutoDraw] = useState(false);
+    const timerRef = useRef(null);
 
     useEffect(() => {
         async function getDeck() {
@@ -19,19 +21,44 @@ const Deck = () => {
     }, [setDeck]);
 
 
-    async function drawCard() {
-        try {
-            if (drawn.length === 52) {
-                return alert("Error: No cards remaining!");
-            };
+    useEffect(() => {
 
-            let c = await axios.get(`${API_BASE_URL}/${deck.deck_id}/draw/?count=1`);
-            setDrawn(drawn => [...drawn, c.data]);
-        } catch (e) {
-            alert(e);
+
+        async function drawCard() {
+            try {
+                let card = await axios.get(`${API_BASE_URL}/${deck.deck_id}/draw`);
+
+                if (card.data.remaining === 0) {
+                    setAutoDraw(false)
+                    setDeck(null)
+                    return alert("Error: No cards remaining!");
+                };
+
+                setDrawn(drawn => [...drawn, card.data]);
+
+            } catch (e) {
+                alert(e);
+            }
+        };
+
+        if (autoDraw && !timerRef.current) {
+            timerRef.current = setInterval(async () => {
+                await drawCard();
+            }, 1000);
         }
-    };
 
+        return () => {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        };
+
+    }, [autoDraw, setAutoDraw, deck]);
+
+
+
+  const toggleAutoDraw = () => {
+    setAutoDraw(auto => !auto);
+  };
 
     const cardComponents = drawn.map(card => (
         <Card
@@ -44,7 +71,9 @@ const Deck = () => {
 
         <div>
             <div className="Deck-header">
-                <button className="Deck-button" onClick={drawCard}>Gimme a Card</button>
+            { deck ? (
+                <button className="Deck-button" onClick={toggleAutoDraw}>{autoDraw ? "STOP Drawing" : "Auto Draw"}</button>
+            ) : null}
             </div>
             <div>
                 {cardComponents}
